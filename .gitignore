@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Pro license signing key - NEVER commit
+.keys/
+.env
+.env.*
+!.env.example

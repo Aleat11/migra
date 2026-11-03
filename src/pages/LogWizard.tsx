@@ -7,6 +7,7 @@ import {
   addAttack,
   addDose,
   removeDose,
+  updateDose,
   upsertAttack,
   useData,
   type Attack,
@@ -48,9 +49,7 @@ export function LogWizard({
   const [start, setStart] = useState(toLocalInput(attack?.start ?? Date.now()));
   const [end, setEnd] = useState(attack?.end ? toLocalInput(attack.end) : "");
   const [endedInSleep, setEndedInSleep] = useState(attack?.endedInSleep ?? false);
-  const [recovery, setRecovery] = useState<"clear" | "recovering" | null>(
-    attack?.recovery ?? null,
-  );
+  const [recovery, setRecovery] = useState<"clear" | "recovering" | null>(attack?.recovery ?? null);
   const [pain, setPain] = useState<number | null>(attack?.pain ?? null);
   const [locations, setLocations] = useState<string[]>(attack?.locations ?? []);
   const [symptoms, setSymptoms] = useState<string[]>(attack?.symptoms ?? []);
@@ -103,25 +102,43 @@ export function LogWizard({
     }
     for (const rid of removed) removeDose(rid);
     for (const m of meds) {
-      if (m.existingId || !m.med.trim()) continue;
-      addDose({ med: m.med.trim(), dose: m.dose.trim(), time: startMs, attackId: id });
+      const name = m.med.trim();
+      const dose = m.dose.trim();
+      if (!name) {
+        if (m.existingId) removeDose(m.existingId);
+        continue;
+      }
+      if (m.existingId) {
+        updateDose(m.existingId, { med: name, dose });
+      } else {
+        addDose({ med: name, dose, time: startMs, attackId: id });
+      }
     }
     toast.success(attack ? "Attack updated." : "Attack logged.");
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background" role="dialog" aria-modal="true" aria-label="Log attack">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-background"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Log attack"
+    >
       <div className="mx-auto max-w-xl px-4 pt-4 pb-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold">{attack ? "Edit attack" : "Log attack"}</h2>
+          <h2 className="font-display text-xl font-semibold">
+            {attack ? "Edit attack" : "Log attack"}
+          </h2>
           <button className="chip" onClick={onClose} aria-label="Close">
             <X size={15} /> Close
           </button>
         </div>
 
         <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-          <span>Step {step + 1} of {STEPS.length}</span>
+          <span>
+            Step {step + 1} of {STEPS.length}
+          </span>
           <span>{STEPS[step]}</span>
         </div>
         <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
@@ -135,14 +152,32 @@ export function LogWizard({
           <div className="space-y-4">
             <SectionTitle>When did it happen?</SectionTitle>
             <div>
-              <label className="field-label" htmlFor="wz-start">Started</label>
-              <input id="wz-start" type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="w-full" />
+              <label className="field-label" htmlFor="wz-start">
+                Started
+              </label>
+              <input
+                id="wz-start"
+                type="datetime-local"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                className="w-full"
+              />
             </div>
             <div>
-              <label className="field-label" htmlFor="wz-end">Ended (leave blank if still going)</label>
-              <input id="wz-end" type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full" />
+              <label className="field-label" htmlFor="wz-end">
+                Ended (leave blank if still going)
+              </label>
+              <input
+                id="wz-end"
+                type="datetime-local"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                className="w-full"
+              />
               {end && (
-                <button className="chip mt-2" onClick={() => setEnd("")}>Clear end time</button>
+                <button className="chip mt-2" onClick={() => setEnd("")}>
+                  Clear end time
+                </button>
               )}
             </div>
             {endMs != null && (
@@ -233,11 +268,21 @@ export function LogWizard({
           <div className="space-y-6">
             <div>
               <SectionTitle>Symptoms</SectionTitle>
-              <Chips options={SYMPTOM_OPTIONS} value={symptoms} onChange={setSymptoms} label="Symptoms" />
+              <Chips
+                options={SYMPTOM_OPTIONS}
+                value={symptoms}
+                onChange={setSymptoms}
+                label="Symptoms"
+              />
             </div>
             <div>
               <SectionTitle>Possible triggers</SectionTitle>
-              <Chips options={TRIGGER_OPTIONS} value={triggers} onChange={setTriggers} label="Triggers" />
+              <Chips
+                options={TRIGGER_OPTIONS}
+                value={triggers}
+                onChange={setTriggers}
+                label="Triggers"
+              />
             </div>
           </div>
         )}
@@ -252,14 +297,22 @@ export function LogWizard({
                     <input
                       placeholder="Medication"
                       value={m.med}
-                      onChange={(e) => setMeds(meds.map((x) => (x.key === m.key ? { ...x, med: e.target.value } : x)))}
+                      onChange={(e) =>
+                        setMeds(
+                          meds.map((x) => (x.key === m.key ? { ...x, med: e.target.value } : x)),
+                        )
+                      }
                       className="flex-1"
                       aria-label="Medication name"
                     />
                     <input
                       placeholder="Dose"
                       value={m.dose}
-                      onChange={(e) => setMeds(meds.map((x) => (x.key === m.key ? { ...x, dose: e.target.value } : x)))}
+                      onChange={(e) =>
+                        setMeds(
+                          meds.map((x) => (x.key === m.key ? { ...x, dose: e.target.value } : x)),
+                        )
+                      }
                       className="w-24"
                       aria-label="Dose"
                     />
@@ -275,13 +328,17 @@ export function LogWizard({
               </div>
               <button
                 className="chip mt-2"
-                onClick={() => setMeds([...meds, { key: `${Date.now()}-${meds.length}`, med: "", dose: "" }])}
+                onClick={() =>
+                  setMeds([...meds, { key: `${Date.now()}-${meds.length}`, med: "", dose: "" }])
+                }
               >
                 <Plus size={14} /> Add medication
               </button>
             </div>
             <div>
-              <label className="field-label" htmlFor="wz-notes">Notes</label>
+              <label className="field-label" htmlFor="wz-notes">
+                Notes
+              </label>
               <textarea
                 id="wz-notes"
                 rows={3}
@@ -296,14 +353,22 @@ export function LogWizard({
 
         <div className="mt-8 flex gap-2">
           {step > 0 && (
-            <button className="btn btn-ghost flex-1" onClick={() => setStep(step - 1)}>Back</button>
+            <button className="btn btn-ghost flex-1" onClick={() => setStep(step - 1)}>
+              Back
+            </button>
           )}
           {step < STEPS.length - 1 ? (
-            <button className="btn flex-1" onClick={() => canNext && setStep(step + 1)} disabled={!canNext}>
+            <button
+              className="btn flex-1"
+              onClick={() => canNext && setStep(step + 1)}
+              disabled={!canNext}
+            >
               Next
             </button>
           ) : (
-            <button className="btn flex-1" onClick={save}>Save attack</button>
+            <button className="btn flex-1" onClick={save}>
+              Save attack
+            </button>
           )}
         </div>
       </div>

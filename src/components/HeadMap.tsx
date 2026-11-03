@@ -11,11 +11,17 @@ const REGIONS: { id: string; d: string; lx: number; ly: number }[] = [
 ];
 
 export function HeadMap({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   const back = value.includes("Back of head");
   return (
     <div className="flex flex-col items-center gap-3">
-      <svg viewBox="40 0 120 200" className="w-64 max-w-full" role="group" aria-label="Head map, select all painful areas">
+      <svg
+        viewBox="40 0 120 200"
+        className="w-64 max-w-full"
+        role="group"
+        aria-label="Head map, select all painful areas"
+      >
         {REGIONS.map((r) => {
           const on = value.includes(r.id);
           return (
@@ -27,14 +33,21 @@ export function HeadMap({ value, onChange }: { value: string[]; onChange: (v: st
               aria-label={r.id}
               tabIndex={0}
               onClick={() => toggle(r.id)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle(r.id))}
+              onKeyDown={(e) =>
+                (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle(r.id))
+              }
               className={`cursor-pointer stroke-foreground transition-colors ${on ? "fill-accent" : "fill-card hover:fill-muted"}`}
               strokeWidth={1.5}
             />
           );
         })}
       </svg>
-      <button type="button" className="chip" aria-pressed={back} onClick={() => toggle("Back of head")}>
+      <button
+        type="button"
+        className="chip"
+        aria-pressed={back}
+        onClick={() => toggle("Back of head")}
+      >
         Back of head
       </button>
       <p className="text-sm text-muted-foreground" aria-live="polite">

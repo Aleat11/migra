@@ -55,19 +55,31 @@ export function AttackCard({ attack, onEdit }: { attack: Attack; onEdit: () => v
             </p>
           </div>
         </div>
-        <ChevronDown size={18} className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          size={18}
+          className={cn(
+            "shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {open && (
         <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           {attack.locations.length > 0 && (
-            <p><span className="font-semibold">Where:</span> {attack.locations.join(", ")}</p>
+            <p>
+              <span className="font-semibold">Where:</span> {attack.locations.join(", ")}
+            </p>
           )}
           {attack.symptoms.length > 0 && (
-            <p><span className="font-semibold">Symptoms:</span> {attack.symptoms.join(", ")}</p>
+            <p>
+              <span className="font-semibold">Symptoms:</span> {attack.symptoms.join(", ")}
+            </p>
           )}
           {attack.triggers.length > 0 && (
-            <p><span className="font-semibold">Triggers:</span> {attack.triggers.join(", ")}</p>
+            <p>
+              <span className="font-semibold">Triggers:</span> {attack.triggers.join(", ")}
+            </p>
           )}
           {doses.length > 0 && (
             <p>
@@ -75,7 +87,11 @@ export function AttackCard({ attack, onEdit }: { attack: Attack; onEdit: () => v
               {doses.map((x) => `${x.med}${x.dose ? ` ${x.dose}` : ""}`).join(", ")}
             </p>
           )}
-          {attack.notes && <p><span className="font-semibold">Notes:</span> {attack.notes}</p>}
+          {attack.notes && (
+            <p>
+              <span className="font-semibold">Notes:</span> {attack.notes}
+            </p>
+          )}
           {attack.end != null && (
             <p className="text-muted-foreground">
               Ended {fmtDateTime(attack.end)}
@@ -83,14 +99,30 @@ export function AttackCard({ attack, onEdit }: { attack: Attack; onEdit: () => v
             </p>
           )}
           <div className="flex gap-2 pt-1">
-            <button className="btn btn-ghost min-h-10 py-2 text-sm" onClick={onEdit}>Edit</button>
+            <button className="btn btn-ghost min-h-10 py-2 text-sm" onClick={onEdit}>
+              Edit
+            </button>
             {confirming ? (
               <>
-                <button className="btn btn-danger min-h-10 py-2 text-sm" onClick={() => deleteAttack(attack.id)}>Confirm delete</button>
-                <button className="btn btn-ghost min-h-10 py-2 text-sm" onClick={() => setConfirming(false)}>Keep</button>
+                <button
+                  className="btn btn-danger min-h-10 py-2 text-sm"
+                  onClick={() => deleteAttack(attack.id)}
+                >
+                  Confirm delete
+                </button>
+                <button
+                  className="btn btn-ghost min-h-10 py-2 text-sm"
+                  onClick={() => setConfirming(false)}
+                >
+                  Keep
+                </button>
               </>
             ) : (
-              <button className="btn btn-ghost min-h-10 py-2 text-sm" onClick={() => setConfirming(true)} aria-label="Delete attack">
+              <button
+                className="btn btn-ghost min-h-10 py-2 text-sm"
+                onClick={() => setConfirming(true)}
+                aria-label="Delete attack"
+              >
                 <Trash2 size={15} /> Delete
               </button>
             )}

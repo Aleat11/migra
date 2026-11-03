@@ -1,6 +1,9 @@
 import { useEffect, type ReactNode } from "react";
 import { BarChart3, Clock3, FileText, Moon, Sun, Waves } from "lucide-react";
 import { setSettings, useData } from "@/lib/store";
+import { APP_NAME } from "@/lib/brand";
+import { ProBadge } from "./ProGate";
+import { UpgradeDialog } from "./Upgrade";
 import type { Tab } from "@/App";
 import { cn } from "@/lib/utils";
 
@@ -40,19 +43,25 @@ export function Shell({
           >
             <Waves size={22} strokeWidth={2.4} />
           </span>
-          <h1 className="font-display text-[26px] font-bold tracking-tight">Migra</h1>
+          <h1 className="font-display text-[26px] font-bold tracking-tight">{APP_NAME}</h1>
         </div>
-        <button
-          className="chip"
-          aria-pressed={migraineMode}
-          onClick={() => setSettings({ migraineMode: !migraineMode })}
-          aria-label={migraineMode ? "Turn off migraine mode" : "Turn on migraine mode (dim screen)"}
-        >
-          {migraineMode ? <Sun size={15} /> : <Moon size={15} />}
-          {migraineMode ? "Exit dim" : "Dim"}
-        </button>
+        <div className="flex items-center gap-2">
+          {!migraineMode && <ProBadge />}
+          <button
+            className="chip"
+            aria-pressed={migraineMode}
+            onClick={() => setSettings({ migraineMode: !migraineMode })}
+            aria-label={
+              migraineMode ? "Turn off migraine mode" : "Turn on migraine mode (dim screen)"
+            }
+          >
+            {migraineMode ? <Sun size={15} /> : <Moon size={15} />}
+            {migraineMode ? "Exit dim" : "Dim"}
+          </button>
+        </div>
       </header>
       <main className="flex-1 px-4 pb-32">{children}</main>
+      <UpgradeDialog />
       {!migraineMode && (
         <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-10">
           <div className="mx-auto max-w-xl px-4 pb-4">
@@ -87,8 +96,8 @@ export function Shell({
 export function Disclaimer() {
   return (
     <p className="mt-6 px-1 text-xs leading-relaxed text-muted-foreground">
-      Migra is a personal diary, not a medical device. It does not diagnose, treat, or give dosing
-      advice. Talk to your clinician about any treatment decisions.
+      {APP_NAME} is a personal diary, not a medical device. It does not diagnose, treat, or give
+      dosing advice. Talk to your clinician about any treatment decisions.
     </p>
   );
 }
@@ -125,9 +134,7 @@ export function Chips({
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="font-display mb-3 text-xl font-bold tracking-tight">{children}</h2>
-  );
+  return <h2 className="font-display mb-3 text-xl font-bold tracking-tight">{children}</h2>;
 }
 
 export function Empty({ title, body }: { title: string; body: string }) {

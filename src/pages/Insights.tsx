@@ -10,8 +10,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { Empty, SectionTitle } from "@/components/Shell";
+import { ProGate } from "@/components/ProGate";
 import { fmtDuration, useData } from "@/lib/store";
+import {
+  checkInCount,
+  headacheDays,
+  medEffectiveness,
+  medicationDays,
+  overuseLevel,
+  rankTriggers,
+  smartInsights,
+  timePatterns,
+} from "@/lib/analytics";
 
 const DAY = 86400000;
 
@@ -70,27 +82,44 @@ export function Insights() {
   const stats = useMemo(() => {
     const done = attacks.filter((a) => a.end != null);
     const pains = attacks.map((a) => a.pain).filter((p): p is number => p != null);
-    const last = attacks[0];
+    // sortAttacks keeps newest at [0], but Math.max stays safe either way
+    const latestStart = attacks.reduce((m, a) => Math.max(m, a.start), 0);
     return {
       total: attacks.length,
       avgPain: pains.length ? (pains.reduce((s, p) => s + p, 0) / pains.length).toFixed(1) : null,
       avgDur: done.length
         ? fmtDuration(done.reduce((s, a) => s + (a.end as number) - a.start, 0) / done.length)
         : null,
-      daysSince: last ? Math.floor((Date.now() - last.start) / DAY) : null,
+      daysSince: latestStart ? Math.max(0, Math.floor((Date.now() - latestStart) / DAY)) : null,
+      hDays: headacheDays(attacks, 30),
+      mDays: medicationDays(d.doses, 30),
     };
-  }, [attacks]);
+  }, [attacks, d.doses]);
 
   const weeks = useMemo(() => weekBuckets(attacks), [attacks]);
   const pressurePts = useMemo(
     () =>
       attacks
         .filter((a) => a.pressureAtOnset != null && a.pain != null)
-        .map((a) => ({ pressure: Math.round(a.pressureAtOnset as number), pain: a.pain as number })),
+        .map((a) => ({
+          pressure: Math.round(a.pressureAtOnset as number),
+          pain: a.pain as number,
+        })),
     [attacks],
   );
-  const topTriggers = useMemo(() => ranked(attacks.flatMap((a) => a.triggers)), [attacks]);
+  const topTriggers = useMemo(
+    () =>
+      rankTriggers(attacks, 6).map(
+        (t) => [`${t.name} (${Math.round(t.share * 100)}%)`, t.count] as [string, number],
+      ),
+    [attacks],
+  );
   const topSymptoms = useMemo(() => ranked(attacks.flatMap((a) => a.symptoms)), [attacks]);
+  const meds = useMemo(() => medEffectiveness(d.doses, attacks), [d.doses, attacks]);
+  const smart = useMemo(() => smartInsights(attacks, d.daily), [attacks, d.daily]);
+  const timing = useMemo(() => timePatterns(attacks), [attacks]);
+  const checkIns = useMemo(() => checkInCount(d.daily), [d.daily]);
+  const overuse = overuseLevel(stats.mDays);
 
   if (attacks.length === 0) {
     return (
@@ -98,19 +127,22 @@ export function Insights() {
         <SectionTitle>Insights</SectionTitle>
         <Empty
           title="No data yet"
-          body="Log a few attacks and this page will show frequency, duration, pain, and how pressure lines up with your attacks."
+          body="Log a few attacks and daily check-ins, and this page will show triggers, medication effectiveness, and personal patterns."
         />
       </div>
     );
   }
 
   const cards: { label: string; value: string }[] = [
-    { label: "Attacks logged", value: String(stats.total) },
+    { label: "Headache days (30d)", value: String(stats.hDays) },
+    { label: "Medication days (30d)", value: String(stats.mDays) },
     { label: "Avg pain", value: stats.avgPain != null ? `${stats.avgPain}/10` : "n/a" },
     { label: "Avg duration", value: stats.avgDur ?? "n/a" },
+    { label: "Attacks logged", value: String(stats.total) },
     {
       label: "Since last",
-      value: stats.daysSince == null ? "n/a" : stats.daysSince === 0 ? "today" : `${stats.daysSince}d`,
+      value:
+        stats.daysSince == null ? "n/a" : stats.daysSince === 0 ? "today" : `${stats.daysSince}d`,
     },
   ];
 
@@ -120,7 +152,10 @@ export function Insights() {
 
       <div className="grid grid-cols-2 gap-3">
         {cards.map((c, i) => (
-          <div key={c.label} className={i === 0 ? "grad-hero rounded-3xl p-4" : "card-soft !p-4 text-center"}>
+          <div
+            key={c.label}
+            className={i === 0 ? "grad-hero rounded-3xl p-4" : "card-soft !p-4 text-center"}
+          >
             {i === 0 ? (
               <>
                 <p className="stat-num text-4xl text-white">{c.value}</p>
@@ -136,6 +171,99 @@ export function Insights() {
         ))}
       </div>
 
+      {overuse !== "ok" && (
+        <section aria-label="Medication frequency" className="card-soft flex gap-3">
+          <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-600" />
+          <div className="text-sm">
+            <p className="font-bold">Acute medication on {stats.mDays} of the last 30 days</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Headache guidelines flag frequent acute-med use (10+ days/month for triptans or
+              combination painkillers, 15+ for simple painkillers) as worth discussing with your
+              clinician to avoid rebound headaches.
+            </p>
+          </div>
+        </section>
+      )}
+
+      <ProGate
+        feature="Your likely triggers"
+        teaser="Compares your attack days against your non-attack days across sleep, stress, water, meals, caffeine, alcohol, cycle and barometric pressure."
+      >
+        <section aria-label="Your likely triggers" className="card-soft">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="label-caps text-muted-foreground">
+              <Sparkles size={12} className="mr-1 inline" /> Your likely triggers
+            </p>
+            <span className="text-xs text-muted-foreground">
+              {checkIns} check-in{checkIns === 1 ? "" : "s"}
+            </span>
+          </div>
+          {smart.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {checkIns < 6
+                ? "Do the 30-second daily check-in on the Today tab for a week (good days and bad days) so the app can compare what happens before attacks vs quiet days."
+                : "No single factor stands out yet. Keep checking in — patterns sharpen with more quiet days and attack days to compare."}
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {smart.map((ins) => (
+                <li key={ins.id} className="rounded-2xl bg-muted/60 p-3.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-bold">{ins.title}</p>
+                    <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-accent-foreground">
+                      {ins.lift}× as likely
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{ins.detail}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Based on {ins.nWith + ins.nWithout} logged days · {ins.confidence} signal
+                    (association, not proof).
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </ProGate>
+
+      <section aria-label="Medication effectiveness" className="card-soft">
+        <p className="label-caps mb-3 text-muted-foreground">Medication effectiveness</p>
+        {meds.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Log medications in the attack wizard, then answer the 2-hour “Did it help?” check-in on
+            the Today tab.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {meds.map((m, idx) => (
+              <li key={m.name}>
+                <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                  <span className="font-bold">
+                    {idx + 1}. {m.name}
+                  </span>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {m.score != null ? `${m.score}% helpful` : "awaiting check-in"}
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                  <div
+                    className="grad-dot h-full rounded-full"
+                    style={{ width: `${m.score != null ? Math.max(8, m.score) : 8}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {m.doses} dose{m.doses === 1 ? "" : "s"} across {m.attacks || m.doses} attack
+                  {m.attacks === 1 ? "" : "s"}
+                  {m.answered > 0 && ` · ${m.helped} yes, ${m.partly} a little, ${m.noHelp} no`}
+                  {m.avgReliefMin != null && ` · avg relief ${fmtDuration(m.avgReliefMin * 60000)}`}
+                  {m.avgPainWhenTaken != null && ` · taken at ${m.avgPainWhenTaken}/10`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section aria-label="Attacks per week" className="card-soft">
         <p className="label-caps mb-3 text-muted-foreground">Attacks per week</p>
         <div className="h-52">
@@ -148,12 +276,55 @@ export function Insights() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" tickLine={false} axisLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-              <Bar dataKey="count" fill="url(#migraBars)" radius={[7, 7, 7, 7]} name="Attacks" maxBarSize={34} />
+              <XAxis
+                dataKey="week"
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                stroke="var(--border)"
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                stroke="var(--border)"
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+              />
+              <Bar
+                dataKey="count"
+                fill="url(#migraBars)"
+                radius={[7, 7, 7, 7]}
+                name="Attacks"
+                maxBarSize={34}
+              />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section aria-label="When attacks start" className="card-soft">
+        <p className="label-caps mb-2 text-muted-foreground">When attacks start</p>
+        {(timing.peakPart || timing.peakDay) && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Most common:{" "}
+            <span className="font-semibold text-foreground">
+              {[timing.peakPart, timing.peakDay && `${timing.peakDay}s`]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </p>
+        )}
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {timing.partOfDay.map((p) => (
+            <div key={p.label} className="rounded-2xl bg-muted/60 p-2.5">
+              <p className="stat-num text-xl">{p.count}</p>
+              <p className="text-xs text-muted-foreground">{p.label}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -161,7 +332,8 @@ export function Insights() {
         <p className="label-caps mb-3 text-muted-foreground">Pain vs pressure at onset</p>
         {pressurePts.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            Pressure is captured automatically when you start an attack from the Today tab with a location set.
+            Pressure is captured automatically when you start an attack from the Today tab with a
+            location set.
           </p>
         ) : (
           <div className="h-52">
@@ -177,7 +349,14 @@ export function Insights() {
                   tickLine={false}
                   domain={["dataMin - 2", "dataMax + 2"]}
                 />
-                <YAxis dataKey="pain" name="Pain" domain={[0, 10]} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" tickLine={false} />
+                <YAxis
+                  dataKey="pain"
+                  name="Pain"
+                  domain={[0, 10]}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                  stroke="var(--border)"
+                  tickLine={false}
+                />
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={tooltipStyle} />
                 <Scatter data={pressurePts} fill="var(--chart-2)" fillOpacity={0.75} />
               </ScatterChart>
@@ -188,7 +367,7 @@ export function Insights() {
 
       <div className="grid grid-cols-1 gap-4">
         <section aria-label="Top triggers" className="card-soft">
-          <p className="label-caps mb-3 text-muted-foreground">Most logged triggers</p>
+          <p className="label-caps mb-3 text-muted-foreground">Triggers ranked from your diary</p>
           <RankedBars items={topTriggers} />
         </section>
         <section aria-label="Top symptoms" className="card-soft">

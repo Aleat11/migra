@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { LocateFixed, MapPin, Minus, Pencil, Plus, Timer, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  LocateFixed,
+  MapPin,
+  Minus,
+  Pencil,
+  Plus,
+  Timer,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { toast } from "sonner";
-import { Disclaimer, Empty, SectionTitle } from "@/components/Shell";
+import { Disclaimer } from "@/components/Shell";
 import { FollowUps, useNow } from "@/components/FollowUps";
+import { Forecast } from "@/components/Forecast";
+import { CheckIn } from "@/components/CheckIn";
+import { SettingsCard } from "@/components/SettingsCard";
+import { ProGate } from "@/components/ProGate";
 import { LogWizard } from "./LogWizard";
 import {
   addAttack,
   fmtDuration,
+  liveAttack,
+  recordPressureSnapshot,
   setSettings,
   upsertAttack,
   useData,
@@ -18,6 +33,7 @@ import {
   riskNote,
   type PressureReading,
 } from "@/lib/pressure";
+import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 function TrendPill({ trend }: { trend: number | null }) {
@@ -37,39 +53,27 @@ function TrendPill({ trend }: { trend: number | null }) {
   );
 }
 
-function PressureCard() {
+function PressureCard({
+  reading,
+  loading,
+  onReload,
+}: {
+  reading: PressureReading | null;
+  loading: boolean;
+  onReload: (force: boolean, la?: number, lo?: number) => void;
+}) {
   const d = useData();
-  const [reading, setReading] = useState<PressureReading | null>(null);
-  const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [resolving, setResolving] = useState(false);
   const [locating, setLocating] = useState(false);
   const { lat, lon, locName } = d.settings;
 
-  const load = useCallback(
-    async (force = false) => {
-      if (lat == null || lon == null) return;
-      setLoading(true);
-      const r = await getPressure(lat, lon, force);
-      setReading(r);
-      setLoading(false);
-    },
-    [lat, lon],
-  );
-
-  useEffect(() => {
-    load(false);
-  }, [load]);
-
-  const pickLocation = async (name: string, la: number, lo: number) => {
+  const pickLocation = (name: string, la: number, lo: number) => {
     setSettings({ locName: name, lat: la, lon: lo });
     setEditing(false);
     setQuery("");
-    setLoading(true);
-    const r = await getPressure(la, lo, true);
-    setReading(r);
-    setLoading(false);
+    onReload(true, la, lo);
   };
 
   const useMyLocation = () => {
@@ -83,7 +87,7 @@ function PressureCard() {
         const { latitude, longitude } = pos.coords;
         const name = await reverseGeocode(latitude, longitude);
         setLocating(false);
-        await pickLocation(name, latitude, longitude);
+        pickLocation(name, latitude, longitude);
       },
       () => {
         setLocating(false);
@@ -102,7 +106,7 @@ function PressureCard() {
       toast.error("Could not find that place. Try a city name or 5-digit ZIP.");
       return;
     }
-    await pickLocation(hit.name, hit.lat, hit.lon);
+    pickLocation(hit.name, hit.lat, hit.lon);
   };
 
   return (
@@ -122,26 +126,34 @@ function PressureCard() {
         <div className="mb-4 space-y-2 rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
           <div className="flex gap-2">
             <input
-              placeholder="City or ZIP"
+              placeholder="City or ZIP (e.g. Moreno Valley or 92553)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
-              className="flex-1"
+              className="flex-1 text-foreground"
               aria-label="City or ZIP code"
             />
             <button className="btn min-h-10 py-2" onClick={search} disabled={resolving}>
               {resolving ? "..." : "Set"}
             </button>
           </div>
-          <button
-            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-60"
-            onClick={useMyLocation}
-            disabled={locating}
-          >
-            <LocateFixed size={14} /> {locating ? "Locating..." : "Use my location"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-60"
+              onClick={useMyLocation}
+              disabled={locating}
+            >
+              <LocateFixed size={14} /> {locating ? "Locating..." : "Use my location"}
+            </button>
+            <button
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-white/25"
+              onClick={() => pickLocation("Moreno Valley, CA", 33.9425, -117.2297)}
+            >
+              Moreno Valley, CA
+            </button>
+          </div>
           <p className="pt-1 text-xs text-white/60">
-            Manual entry only — Migra never tracks your location in the background.
+            Manual entry only — {APP_NAME} never tracks your location in the background.
           </p>
         </div>
       )}
@@ -163,7 +175,7 @@ function PressureCard() {
           </p>
           <button
             className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-2xl bg-white/15 px-5 py-2 text-sm font-bold text-white hover:bg-white/25"
-            onClick={() => load(true)}
+            onClick={() => onReload(true)}
           >
             Retry
           </button>
@@ -184,9 +196,17 @@ function PressureCard() {
           </p>
           <p className="mt-3 text-center text-xs text-white/60">
             {locName} · updated{" "}
-            {new Date(reading.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            {new Date(reading.fetchedAt).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
             {" · "}
-            <button className="font-semibold text-white/85 underline" onClick={() => load(true)}>refresh</button>
+            <button
+              className="font-semibold text-white/85 underline"
+              onClick={() => onReload(true)}
+            >
+              refresh
+            </button>
           </p>
         </div>
       )}
@@ -194,17 +214,16 @@ function PressureCard() {
   );
 }
 
-function LiveAttack({ onLogDetails }: { onLogDetails: () => void }) {
+function LiveAttack({
+  pressure,
+  onLogDetails,
+}: {
+  pressure: number | null;
+  onLogDetails: () => void;
+}) {
   const d = useData();
   const now = useNow(1000);
-  const live = d.attacks.find((a) => a.end == null) ?? null;
-  const [pressure, setPressure] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (d.settings.lat != null && d.settings.lon != null) {
-      getPressure(d.settings.lat, d.settings.lon).then((r) => setPressure(r.value));
-    }
-  }, [d.settings.lat, d.settings.lon]);
+  const live = liveAttack(d);
 
   if (!live) {
     return (
@@ -262,14 +281,51 @@ function LiveAttack({ onLogDetails }: { onLogDetails: () => void }) {
 export function Today() {
   const d = useData();
   const [wizardFor, setWizardFor] = useState<"new" | "live" | null>(null);
-  const live = d.attacks.find((a) => a.end == null) ?? null;
+  const [reading, setReading] = useState<PressureReading | null>(null);
+  const [loading, setLoading] = useState(false);
+  const live = liveAttack(d);
+  const { lat, lon, migraineMode } = d.settings;
+
+  const loadPressure = useCallback(
+    async (force = false, la = lat, lo = lon) => {
+      if (la == null || lo == null) return;
+      setLoading(true);
+      const r = await getPressure(la, lo, force);
+      setReading(r);
+      recordPressureSnapshot(r.value, r.trend);
+      setLoading(false);
+    },
+    [lat, lon],
+  );
+
+  useEffect(() => {
+    loadPressure(false);
+  }, [loadPressure]);
+
+  // Migraine mode: only the essentials, large targets, zero clutter
+  if (migraineMode) {
+    return (
+      <div className="space-y-5 pt-2">
+        <section aria-label="Current attack">
+          <LiveAttack pressure={reading?.value ?? null} onLogDetails={() => setWizardFor("live")} />
+        </section>
+        <FollowUps />
+        {wizardFor && (
+          <LogWizard
+            attack={wizardFor === "live" ? live : null}
+            onClose={() => setWizardFor(null)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 pt-2">
-      <PressureCard />
+      <PressureCard reading={reading} loading={loading} onReload={loadPressure} />
 
       <section aria-label="Current attack">
-        <LiveAttack onLogDetails={() => setWizardFor("live")} />
+        <LiveAttack pressure={reading?.value ?? null} onLogDetails={() => setWizardFor("live")} />
         {!live && (
           <button
             className={cn(
@@ -284,29 +340,23 @@ export function Today() {
 
       <FollowUps />
 
-      <section aria-label="Display settings" className="card-soft">
-        <SectionTitle>Display</SectionTitle>
-        <label className="flex cursor-pointer items-center justify-between gap-3 py-1">
-          <span className="text-sm font-medium">High contrast</span>
-          <input
-            type="checkbox"
-            checked={d.settings.highContrast}
-            onChange={(e) => setSettings({ highContrast: e.target.checked })}
-            className="h-5 w-5 accent-[var(--primary)]"
-          />
-        </label>
-        <p className="text-xs text-muted-foreground">
-          Migraine mode (dim) is in the top bar. Both are one tap, no menus.
-        </p>
-      </section>
+      <CheckIn />
+
+      {reading && reading.series.length > 0 && (
+        <ProGate
+          feature="48-hour pressure forecast"
+          teaser="Spot rapid pressure drops up to two days out, with optional alerts."
+        >
+          <Forecast reading={reading} />
+        </ProGate>
+      )}
+
+      <SettingsCard />
 
       <Disclaimer />
 
       {wizardFor && (
-        <LogWizard
-          attack={wizardFor === "live" ? live : null}
-          onClose={() => setWizardFor(null)}
-        />
+        <LogWizard attack={wizardFor === "live" ? live : null} onClose={() => setWizardFor(null)} />
       )}
     </div>
   );

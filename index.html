@@ -2,11 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.zippopotam.us https://api.bigdatacloud.net; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f766e" />
-    <meta name="description" content="Migra: a calm, private migraine diary. Track attacks, pressure, triggers, and reports." />
-    <title>Migra</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="description"
+      content="AuraGuard: a calm, private migraine diary. Track attacks, barometric pressure, triggers, and clinician reports."
+    />
+    <title>AuraGuard</title>
   </head>
   <body>
     <div id="root"></div>

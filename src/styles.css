@@ -142,7 +142,11 @@ html.hc body::before {
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
   }
   /* Soft ambient wash behind everything (static, calm) */
   body::before {
@@ -155,7 +159,9 @@ html.hc body::before {
       radial-gradient(90% 30% at 85% 12%, oklch(0.85 0.07 290 / 0.28), transparent 70%);
     pointer-events: none;
   }
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     @apply rounded-xl border border-input bg-card px-3 py-2 text-base;
   }
 }
@@ -182,7 +188,9 @@ html.hc body::before {
   }
   .card-soft {
     @apply rounded-3xl border border-border/70 bg-card p-5;
-    box-shadow: 0 1px 2px oklch(0.3 0.03 240 / 0.05), 0 12px 32px -16px oklch(0.35 0.05 240 / 0.22);
+    box-shadow:
+      0 1px 2px oklch(0.3 0.03 240 / 0.05),
+      0 12px 32px -16px oklch(0.35 0.05 240 / 0.22);
   }
   .field-label {
     @apply mb-1.5 block text-sm font-semibold;
@@ -214,4 +222,3 @@ html.hc body::before {
     @apply font-display font-bold tracking-tight tabular-nums;
   }
 }
-
